@@ -288,6 +288,7 @@ static u8 check_enc_key_size(struct l2cap_conn *conn, __u8 max_key_size)
 #define CFM_PASSKEY	SMP_CFM_PASSKEY
 #define JUST_CFM	SMP_JUST_CFM
 #define OVERLAP		SMP_OVERLAP
+#define REQ_OOB		0x04
 static const u8	gen_method[5][5] = {
 	{JUST_WORKS,  JUST_CFM,    REQ_PASSKEY, JUST_WORKS, REQ_PASSKEY},
 	{JUST_WORKS,  JUST_CFM,    REQ_PASSKEY, JUST_WORKS, REQ_PASSKEY},
@@ -295,6 +296,23 @@ static const u8	gen_method[5][5] = {
 	{JUST_WORKS,  JUST_CFM,    JUST_WORKS,  JUST_WORKS, JUST_CFM},
 	{CFM_PASSKEY, CFM_PASSKEY, REQ_PASSKEY, JUST_WORKS, OVERLAP}
 };
+static void smp_failure(struct l2cap_conn *conn, u8 reason, u8 send)
+{
+	struct hci_conn *hcon = conn->hcon;
+
+	if (send)
+		smp_send_cmd(conn, SMP_CMD_PAIRING_FAIL, sizeof(reason),
+								&reason);
+
+	clear_bit(HCI_CONN_ENCRYPT_PEND, &conn->hcon->flags);
+	mgmt_auth_failed(conn->hcon->hdev, conn->dst, hcon->type,
+			 hcon->dst_type, reason);
+
+	cancel_delayed_work_sync(&conn->security_timer);
+
+	if (test_and_clear_bit(HCI_CONN_LE_SMP_PEND, &conn->hcon->flags))
+		smp_chan_destroy(conn);
+}
 
 static int tk_request(struct l2cap_conn *conn, u8 remote_oob, u8 auth,
 						u8 local_io, u8 remote_io)
