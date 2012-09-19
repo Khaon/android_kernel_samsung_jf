@@ -1010,9 +1010,18 @@ int dpm_suspend_end(pm_message_t state)
 	if (error)
 		return error;
 	error = dpm_suspend_noirq(state);
+<<<<<<< HEAD
 	if (error)
 		dpm_resume_early(resume_event(state));
 	return error;
+=======
+	if (error) {
+		dpm_resume_early(resume_event(state));
+		return error;
+	}
+
+	return 0;
+>>>>>>> 24a0c2063c80... PM / Sleep: use resume event when call dpm_resume_early
 }
 EXPORT_SYMBOL_GPL(dpm_suspend_end);
 
@@ -1134,12 +1143,9 @@ static int __device_suspend(struct device *dev, pm_message_t state, bool async)
 
 	device_unlock(dev);
 
-<<<<<<< HEAD
 	del_timer_sync(&timer);
 	destroy_timer_on_stack(&timer);
 
-=======
->>>>>>> 3d90eeae3771... PM / Sleep: Prevent waiting forever on asynchronous suspend after abort
  Complete:
 	complete_all(&dev->power.completion);
 
