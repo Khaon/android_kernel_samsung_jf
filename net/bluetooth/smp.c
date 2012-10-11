@@ -47,6 +47,8 @@
 
 static int smp_distribute_keys(struct l2cap_conn *conn, __u8 force);
 
+#define AUTH_REQ_MASK   0x07
+
 static inline void swap128(u8 src[16], u8 dst[16])
 {
 	int i;
@@ -244,15 +246,11 @@ static void build_pairing_cmd(struct l2cap_conn *conn,
 		req->max_key_size = SMP_MAX_ENC_KEY_SIZE;
 		req->init_key_dist = all_keys;
 		req->resp_key_dist = dist_keys;
-		req->auth_req = authreq;
 		BT_DBG("SMP_CMD_PAIRING_REQ %d %d %d %d %2.2x %2.2x",
 				req->io_capability, req->oob_flag,
 				req->auth_req, req->max_key_size,
 				req->init_key_dist, req->resp_key_dist);
 		return;
-	}
-
-	/* Only request OOB if remote AND we support it */
 	if (req->oob_flag)
 		rsp->oob_flag = hcon->oob ? SMP_OOB_PRESENT :
 						SMP_OOB_NOT_PRESENT;
