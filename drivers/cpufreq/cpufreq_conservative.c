@@ -87,7 +87,7 @@ static void cs_check_cpu(int cpu, unsigned int load)
 	 * support the current CPU usage without triggering the up policy. To be
 	 * safe, we focus 10 points under the threshold.
 	 */
-	if (load < (cs_tuners->down_threshold - 10)) {
+	if (load < (cs_tuners->down_threshold)) {
 		/*
 		 * if we cannot reduce the frequency anymore, break out early
 		 */
