@@ -1646,12 +1646,6 @@ static void __cpuinit init_hrtimers_cpu(int cpu)
 	int *lock_init = &per_cpu(hrtimer_base_lock_init, cpu);
 	int i;
 
-	if ((*lock_init) != cpu) {
-		*lock_init = cpu;
-		raw_spin_lock_init(&cpu_base->lock);
-		pr_info("hrtimer base lock initialized for cpu%d\n", cpu);
-	}
-
 	for (i = 0; i < HRTIMER_MAX_CLOCK_BASES; i++) {
 		cpu_base->clock_base[i].cpu_base = cpu_base;
 		timerqueue_init_head(&cpu_base->clock_base[i].active);
