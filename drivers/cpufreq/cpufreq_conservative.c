@@ -74,8 +74,6 @@ static void cs_check_cpu(int cpu, unsigned int load)
 			freq_target = 5;
 
 		dbs_info->requested_freq += freq_target;
-		if (dbs_info->requested_freq > policy->max)
-			dbs_info->requested_freq = policy->max;
 
 		__cpufreq_driver_target(policy, dbs_info->requested_freq,
 			CPUFREQ_RELATION_H);
@@ -84,8 +82,7 @@ static void cs_check_cpu(int cpu, unsigned int load)
 
 	/*
 	 * The optimal frequency is the frequency that is the lowest that can
-	 * support the current CPU usage without triggering the up policy. To be
-	 * safe, we focus 10 points under the threshold.
+	 * support the current CPU usage without triggering the up policy.
 	 */
 	if (load < (cs_tuners->down_threshold)) {
 		/*
