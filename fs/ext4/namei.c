@@ -2571,6 +2571,7 @@ static int ext4_rename(struct inode *old_dir, struct dentry *old_dentry,
 =======
 	if (IS_ERR(new_bh)) {
 		retval = PTR_ERR(new_bh);
+		new_bh = NULL;
 		goto end_rename;
 	}
 >>>>>>> df22b9ebd5c3... ext4: propagate errors up to ext4_find_entry()'s callers
