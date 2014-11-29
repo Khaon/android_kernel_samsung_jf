@@ -449,11 +449,22 @@ static void __init build_mem_type_table(void)
 	cp = &cache_policies[cachepolicy];
 	vecs_pgprot = kern_pgprot = user_pgprot = cp->pte;
 
+#ifndef CONFIG_ARM_LPAE
 	/*
 	 * Only use write-through for non-SMP systems
 	 */
-	if (!is_smp() && cpu_arch >= CPU_ARCH_ARMv5 && cachepolicy > CPOLICY_WRITETHROUGH)
-		vecs_pgprot = cache_policies[CPOLICY_WRITETHROUGH].pte;
+	if (cpu_arch == CPU_ARCH_ARMv6)
+		vecs_pgprot |= L_PTE_MT_VECTORS;
+
+	/*
+	 * Check is it with support for the PXN bit
+	 * in the Short-descriptor translation table format descriptors.
+	 */
+	if (cpu_arch == CPU_ARCH_ARMv7 &&
+		(read_cpuid_ext(CPUID_EXT_MMFR0) & 0xF) == 4) {
+		user_pmd_table |= PMD_PXNTABLE;
+	}
+#endif
 
 	/*
 	 * Enable CPU-specific coherency if supported.
