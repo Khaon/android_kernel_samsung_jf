@@ -77,6 +77,8 @@ extern void __pgd_error(const char *file, int line, pgd_t);
  */
 #define _L_PTE_DEFAULT	L_PTE_PRESENT | L_PTE_YOUNG
 
+#define L_PTE_MT_VECTORS	(_AT(pteval_t, 0x0f) << 2)	/* 1111 */
+
 extern pgprot_t		pgprot_user;
 extern pgprot_t		pgprot_kernel;
 
