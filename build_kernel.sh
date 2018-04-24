@@ -17,9 +17,21 @@ export ANY_KERNEL=/home/khaon/android/kernel/AnyKernel2;
 export ARCH=arm;
 export CCACHE_DIR=/home/khaon/.ccache;
 export PACKAGEDIR=/home/khaon/android/kernel/Packages;
-export CROSS_COMPILE="ccache /home/khaon/android/kernel/linaro-4.9/bin/arm-eabi-";
-export MKBOOTIMG=/home/khaon/android/kernel/mkbootimg_tools/mkboot;
-export MKBOOTIMG_TOOLTS_ZIMAGE_JF_FOLDER=/home/khaon/android/kernel/mkbootimg_tools/boot-jf
+export MKBOOT=/home/khaon/android/kernel/mkbootimg_tools/mkboot;
+export MKBOOT_TOOLS_ZIMAGE_JF_FOLDER=/home/khaon/android/kernel/mkbootimg_tools/boot-jf;
+export DEFCONFIG=lineageos_jf_defconfig;
+export TOOLCHAIN_PATH="/home/khaon/android/kernel/linaro-4.9/bin/arm-eabi-";
+export CROSS_COMPILE="ccache ${TOOLCHAIN_PATH}";
+
+#Looking if folders and toolchains are found
+if [ ! -d $DIRECTORY ]; then
+	echo "${red}The package dir folder doesn't exists, creating it";
+	mkdir -p $PACKAGEDIR;
+fi;
+if [ ! -e "${TOOLCHAIN_PATH}gcc" ]; then
+	echo "${red} There is no toolchain found, exiting";
+	exit;
+fi;
 
 echo "${txtbld} Removing old zImage ${txtrst}";
 make mrproper;
@@ -27,7 +39,7 @@ rm $PACKAGEDIR/zImage;
 rm arch/arm/boot/zImage;
 
 echo "${bldblu} Making the kernel ${txtrst}";
-make lineageos_jf_defconfig;
+make $DEFCONFIG;
 
 make -j4;
 
@@ -37,11 +49,12 @@ if [ -e $KERNELDIR/arch/arm/boot/zImage ]; then
 
 	export curdate=`date "+%m-%d-%Y"`;
 
-	cp $KERNELDIR/arch/arm/boot/zImage $MKBOOTIMG_TOOLTS_ZIMAGE_JF_FOLDER/kernel
+	cp $KERNELDIR/arch/arm/boot/zImage $MKBOOTIMG_TOOLTS_ZIMAGE_JF_FOLDER/kernel;
+	$MKBOOT $MKBOOT_TOOLS_ZIMAGE_JF_FOLDER boot.img;
 
 	cd $PACKAGEDIR;
 
-	echo "${txtbld} Make AnyKernel flashable archive ${txtrst} "
+	echo "${txtbld} Making AnyKernel flashable archive ${txtrst} "
 	echo "";
 	rm UPDATE-AnyKernel2-khaon-kernel-jf-nougat*.zip;
 	cd $ANY_KERNEL;
