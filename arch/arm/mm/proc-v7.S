@@ -421,9 +421,6 @@ __v7_ca15mp_proc_info:
 __krait_proc_info:
 	.long	0x510f0400		@ Required ID value
 	.long	0xff0ffc00		@ Mask for ID
-<<<<<<< HEAD
-	__v7_proc __v7_setup, hwcaps = HWCAP_IDIV
-=======
 	/*
 	 * Some Krait processors don't indicate support for SDIV and UDIV
 	 * instructions in the ARM instruction set, even though they actually
@@ -431,7 +428,6 @@ __krait_proc_info:
 	 * instructions even though they actually do support them.
 	 */
 	__v7_proc __v7_setup, hwcaps = HWCAP_IDIV | HWCAP_VFPv4
->>>>>>> 6f0f2a9f0f8f... ARM: 8196/1: vfp: Workaround bad MVFR1 register on some Kraits
 	.size	__krait_proc_info, . - __krait_proc_info
 
 	/*
