@@ -18,6 +18,7 @@ export ARCH=arm;
 export CCACHE_DIR=/home/khaon/.ccache;
 export PACKAGEDIR=/home/khaon/android/kernel/Packages;
 export MKBOOT=/home/khaon/android/kernel/mkbootimg_tools/mkboot;
+export MKBOOT_FOLDER=/home/khaon/android/kernel/mkbootimg_tools;
 export MKBOOT_TOOLS_ZIMAGE_JF_FOLDER=/home/khaon/android/kernel/mkbootimg_tools/boot-jf;
 export DEFCONFIG=lineageos_jf_defconfig;
 export TOOLCHAIN_PATH="/home/khaon/android/kernel/linaro-4.9/bin/arm-eabi-";
@@ -49,8 +50,8 @@ if [ -e $KERNELDIR/arch/arm/boot/zImage ]; then
 
 	export curdate=`date "+%m-%d-%Y"`;
 
-	cp $KERNELDIR/arch/arm/boot/zImage $MKBOOTIMG_TOOLTS_ZIMAGE_JF_FOLDER/kernel;
-	$MKBOOT $MKBOOT_TOOLS_ZIMAGE_JF_FOLDER boot.img;
+	cp $KERNELDIR/arch/arm/boot/zImage $MKBOOT_TOOLS_ZIMAGE_JF_FOLDER/kernel;
+	$MKBOOT $MKBOOT_TOOLS_ZIMAGE_JF_FOLDER $MKBOOT_FOLDER/boot-$curdate.img;
 
 	cd $PACKAGEDIR;
 
