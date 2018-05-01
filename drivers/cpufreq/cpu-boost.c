@@ -46,7 +46,7 @@ static struct workqueue_struct *cpu_boost_wq;
 
 static struct work_struct input_boost_work;
 
-static unsigned int boost_ms;
+static unsigned int boost_ms = 0;
 module_param(boost_ms, uint, 0644);
 
 static unsigned int sync_threshold;
@@ -54,7 +54,7 @@ module_param(sync_threshold, uint, 0644);
 
 static bool input_boost_enabled;
 
-static unsigned int input_boost_ms = 40;
+static unsigned int input_boost_ms = 150;
 module_param(input_boost_ms, uint, 0644);
 
 static unsigned int migration_load_threshold = 15;
@@ -65,7 +65,7 @@ module_param(load_based_syncs, bool, 0644);
 
 static struct delayed_work input_boost_rem;
 static u64 last_input_time;
-#define MIN_INPUT_INTERVAL (150 * USEC_PER_MSEC)
+#define MIN_INPUT_INTERVAL (250 * USEC_PER_MSEC)
 
 static int set_input_boost_freq(const char *buf, const struct kernel_param *kp)
 {
@@ -370,7 +370,7 @@ static void cpuboost_input_event(struct input_handle *handle,
 		return;
 
 	queue_work(cpu_boost_wq, &input_boost_work);
-	last_input_time = ktime_to_us(ktime_get());
+	last_input_time = now;
 }
 
 static int cpuboost_input_connect(struct input_handler *handler,
