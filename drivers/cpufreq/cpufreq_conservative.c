@@ -31,6 +31,7 @@
 #define DEF_FREQUENCY_DOWN_THRESHOLD		(20)
 #define DEF_SAMPLING_DOWN_FACTOR		(1)
 #define MAX_SAMPLING_DOWN_FACTOR		(10)
+#define MIN_SAMPLING_RATE				(20000)
 
 static DEFINE_PER_CPU(struct cs_cpu_dbs_info_s, cs_cpu_dbs_info);
 
@@ -335,8 +336,7 @@ static int cs_init(struct dbs_data *dbs_data)
 	tuners->freq_step = 5;
 
 	dbs_data->tuners = tuners;
-	dbs_data->min_sampling_rate = MIN_SAMPLING_RATE_RATIO *
-		jiffies_to_usecs(10);
+	dbs_data->min_sampling_rate = MIN_SAMPLING_RATE;
 	mutex_init(&dbs_data->mutex);
 	return 0;
 }
