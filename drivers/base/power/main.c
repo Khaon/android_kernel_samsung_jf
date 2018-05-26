@@ -1010,18 +1010,12 @@ int dpm_suspend_end(pm_message_t state)
 	if (error)
 		return error;
 	error = dpm_suspend_noirq(state);
-<<<<<<< HEAD
-	if (error)
-		dpm_resume_early(resume_event(state));
-	return error;
-=======
 	if (error) {
 		dpm_resume_early(resume_event(state));
 		return error;
 	}
 
 	return 0;
->>>>>>> 24a0c2063c80... PM / Sleep: use resume event when call dpm_resume_early
 }
 EXPORT_SYMBOL_GPL(dpm_suspend_end);
 

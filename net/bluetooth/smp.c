@@ -246,11 +246,15 @@ static void build_pairing_cmd(struct l2cap_conn *conn,
 		req->max_key_size = SMP_MAX_ENC_KEY_SIZE;
 		req->init_key_dist = all_keys;
 		req->resp_key_dist = dist_keys;
+		req->auth_req = authreq;
 		BT_DBG("SMP_CMD_PAIRING_REQ %d %d %d %d %2.2x %2.2x",
 				req->io_capability, req->oob_flag,
 				req->auth_req, req->max_key_size,
 				req->init_key_dist, req->resp_key_dist);
 		return;
+	}
+
+	/* Only request OOB if remote AND we support it */
 	if (req->oob_flag)
 		rsp->oob_flag = hcon->oob ? SMP_OOB_PRESENT :
 						SMP_OOB_NOT_PRESENT;
@@ -294,23 +298,6 @@ static const u8	gen_method[5][5] = {
 	{JUST_WORKS,  JUST_CFM,    JUST_WORKS,  JUST_WORKS, JUST_CFM},
 	{CFM_PASSKEY, CFM_PASSKEY, REQ_PASSKEY, JUST_WORKS, OVERLAP}
 };
-static void smp_failure(struct l2cap_conn *conn, u8 reason, u8 send)
-{
-	struct hci_conn *hcon = conn->hcon;
-
-	if (send)
-		smp_send_cmd(conn, SMP_CMD_PAIRING_FAIL, sizeof(reason),
-								&reason);
-
-	clear_bit(HCI_CONN_ENCRYPT_PEND, &conn->hcon->flags);
-	mgmt_auth_failed(conn->hcon->hdev, conn->dst, hcon->type,
-			 hcon->dst_type, reason);
-
-	cancel_delayed_work_sync(&conn->security_timer);
-
-	if (test_and_clear_bit(HCI_CONN_LE_SMP_PEND, &conn->hcon->flags))
-		smp_chan_destroy(conn);
-}
 
 static int tk_request(struct l2cap_conn *conn, u8 remote_oob, u8 auth,
 						u8 local_io, u8 remote_io)
@@ -759,7 +746,7 @@ invalid_key:
 int smp_conn_security(struct hci_conn *hcon, __u8 sec_level)
 {
 	struct l2cap_conn *conn = hcon->l2cap_data;
-	struct smp_chan *smp = conn->smp_chan;
+
 	__u8 authreq;
 
 	BT_DBG("conn %p hcon %p %d req: %d",
@@ -1084,7 +1071,7 @@ int smp_link_encrypt_cmplt(struct l2cap_conn *conn, u8 status, u8 encrypt)
 
 	/* Fall back to Pairing request if failed a Link Security request */
 	else if (hcon->sec_req  && (status || !encrypt))
-		smp_conn_security(conn, hcon->pending_sec_level);
+		smp_conn_security(hcon, hcon->pending_sec_level);
 
 	hci_conn_put(hcon);
 
