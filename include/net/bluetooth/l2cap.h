@@ -443,6 +443,8 @@ struct l2cap_conn {
 
 	struct timer_list info_timer;
 
+	struct smp_chan		*smp_chan;
+
 	spinlock_t	lock;
 
 	struct sk_buff *rx_skb;

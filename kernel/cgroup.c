@@ -287,33 +287,6 @@ static void cgroup_release_agent(struct work_struct *work);
 static DECLARE_WORK(release_agent_work, cgroup_release_agent);
 static void check_for_release(struct cgroup *cgrp);
 
-/*
- * A queue for waiters to do rmdir() cgroup. A tasks will sleep when
- * list_empty(&cgroup->children) && subsys has some
- * reference to css->refcnt. In general, this refcnt is expected to goes down
- * to zero, soon.
- *
- * CGRP_WAIT_ON_RMDIR flag is set under cgroup's inode->i_mutex;
- */
-static DECLARE_WAIT_QUEUE_HEAD(cgroup_rmdir_waitq);
-
-static void cgroup_wakeup_rmdir_waiter(struct cgroup *cgrp)
-{
-	if (unlikely(test_and_clear_bit(CGRP_WAIT_ON_RMDIR, &cgrp->flags)))
-		wake_up_all(&cgroup_rmdir_waitq);
-}
-
-void cgroup_exclude_rmdir(struct cgroup_subsys_state *css)
-{
-	css_get(css);
-}
-
-void cgroup_release_and_wakeup_rmdir(struct cgroup_subsys_state *css)
-{
-	cgroup_wakeup_rmdir_waiter(css->cgroup);
-	css_put(css);
-}
-
 /* Link structure for associating css_set objects with cgroups */
 struct cg_cgroup_link {
 	/*
@@ -379,19 +352,10 @@ static struct hlist_head *css_set_hash(struct cgroup_subsys_state *css[])
  * compiled into their kernel but not actually in use */
 static int use_task_css_set_links __read_mostly;
 
-/*
- * refcounted get/put for css_set objects
- */
-static inline void get_css_set(struct css_set *cg)
-{
-	atomic_inc(&cg->refcount);
-}
-
-static void put_css_set(struct css_set *cg)
+static void __put_css_set(struct css_set *cg, int taskexit)
 {
 	struct cg_cgroup_link *link;
 	struct cg_cgroup_link *saved_link;
-
 	/*
 	 * Ensure that the refcount doesn't hit zero while any readers
 	 * can see it. Similar to atomic_dec_and_lock(), but for an
@@ -405,6 +369,7 @@ static void put_css_set(struct css_set *cg)
 		return;
 	}
 
+	/* This css_set is dead. unlink it and release cgroup refcounts */
 	hlist_del(&cg->hlist);
 	css_set_count--;
 
@@ -425,14 +390,32 @@ static void put_css_set(struct css_set *cg)
 			if (taskexit)
 				set_bit(CGRP_RELEASABLE, &cgrp->flags);
 			check_for_release(cgrp);
-			cgroup_wakeup_rmdir_waiter(cgrp);
 		}
 		rcu_read_unlock();
 
 		kfree(link);
 	}
+
 	write_unlock(&css_set_lock);
 	kfree_rcu(cg, rcu_head);
+}
+
+/*
+ * refcounted get/put for css_set objects
+ */
+static inline void get_css_set(struct css_set *cg)
+{
+	atomic_inc(&cg->refcount);
+}
+
+static inline void put_css_set(struct css_set *cg)
+{
+	__put_css_set(cg, 0);
+}
+
+static inline void put_css_set_taskexit(struct css_set *cg)
+{
+	__put_css_set(cg, 1);
 }
 
 /*
@@ -764,7 +747,7 @@ static struct cgroup *task_cgroup_from_root(struct task_struct *task,
  * cgroup_attach_task(), which overwrites one tasks cgroup pointer with
  * another.  It does so using cgroup_mutex, however there are
  * several performance critical places that need to reference
- * task->cgroups without the expense of grabbing a system global
+ * task->cgroup without the expense of grabbing a system global
  * mutex.  Therefore except as noted below, when dereferencing or, as
  * in cgroup_attach_task(), modifying a task's cgroups pointer we use
  * task_lock(), which acts on a spinlock (task->alloc_lock) already in
@@ -953,6 +936,33 @@ static void cgroup_d_remove_dir(struct dentry *dentry)
 	spin_unlock(&dentry->d_lock);
 	spin_unlock(&parent->d_lock);
 	remove_dir(dentry);
+}
+
+/*
+ * A queue for waiters to do rmdir() cgroup. A tasks will sleep when
+ * cgroup->count == 0 && list_empty(&cgroup->children) && subsys has some
+ * reference to css->refcnt. In general, this refcnt is expected to goes down
+ * to zero, soon.
+ *
+ * CGRP_WAIT_ON_RMDIR flag is set under cgroup's inode->i_mutex;
+ */
+static DECLARE_WAIT_QUEUE_HEAD(cgroup_rmdir_waitq);
+
+static void cgroup_wakeup_rmdir_waiter(struct cgroup *cgrp)
+{
+	if (unlikely(test_and_clear_bit(CGRP_WAIT_ON_RMDIR, &cgrp->flags)))
+		wake_up_all(&cgroup_rmdir_waitq);
+}
+
+void cgroup_exclude_rmdir(struct cgroup_subsys_state *css)
+{
+	css_get(css);
+}
+
+void cgroup_release_and_wakeup_rmdir(struct cgroup_subsys_state *css)
+{
+	cgroup_wakeup_rmdir_waiter(css->cgroup);
+	css_put(css);
 }
 
 /*
@@ -1933,9 +1943,8 @@ int cgroup_attach_task(struct cgroup *cgrp, struct task_struct *tsk)
 		if (ss->attach)
 			ss->attach(cgrp, &tset);
 	}
-	set_bit(CGRP_RELEASABLE, &cgrp->flags);
-	/* put_css_set will not destroy cg until after an RCU grace period */
-	put_css_set(cg);
+
+	synchronize_rcu();
 
 	/*
 	 * wake up rmdir() waiter. the rmdir should fail since the cgroup
@@ -2110,6 +2119,7 @@ static int cgroup_attach_proc(struct cgroup *cgrp, struct task_struct *leader)
 	/*
 	 * step 5: success! and cleanup
 	 */
+	synchronize_rcu();
 	cgroup_wakeup_rmdir_waiter(cgrp);
 	retval = 0;
 out_put_css_set_refs:
@@ -3949,25 +3959,6 @@ static int cgroup_clear_css_refs(struct cgroup *cgrp)
 	return !failed;
 }
 
-/* checks if all of the css_sets attached to a cgroup have a refcount of 0.
- * Must be called with css_set_lock held */
-static int cgroup_css_sets_empty(struct cgroup *cgrp)
-{
-	struct cg_cgroup_link *link;
-
-	read_lock(&css_set_lock);
-	list_for_each_entry(link, &cgrp->css_sets, cgrp_link_list) {
-		struct css_set *cg = link->cg;
-		if (cg && (atomic_read(&cg->refcount) > 0)) {
-			read_unlock(&css_set_lock);
-			return 0;
-		}
-	}
-
-	read_unlock(&css_set_lock);
-	return 1;
-}
-
 static int cgroup_rmdir(struct inode *unused_dir, struct dentry *dentry)
 {
 	struct cgroup *cgrp = dentry->d_fsdata;
@@ -3980,7 +3971,7 @@ static int cgroup_rmdir(struct inode *unused_dir, struct dentry *dentry)
 	/* the vfs holds both inode->i_mutex already */
 again:
 	mutex_lock(&cgroup_mutex);
-	if (!cgroup_css_sets_empty(cgrp)) {
+	if (atomic_read(&cgrp->count) != 0) {
 		mutex_unlock(&cgroup_mutex);
 		return -EBUSY;
 	}
@@ -4013,7 +4004,7 @@ again:
 
 	mutex_lock(&cgroup_mutex);
 	parent = cgrp->parent;
-	if (!cgroup_css_sets_empty(cgrp) || !list_empty(&cgrp->children)) {
+	if (atomic_read(&cgrp->count) || !list_empty(&cgrp->children)) {
 		clear_bit(CGRP_WAIT_ON_RMDIR, &cgrp->flags);
 		mutex_unlock(&cgroup_mutex);
 		return -EBUSY;
@@ -4053,6 +4044,7 @@ again:
 	cgroup_d_remove_dir(d);
 	dput(d);
 
+	set_bit(CGRP_RELEASABLE, &parent->flags);
 	check_for_release(parent);
 
 	/*
@@ -4663,7 +4655,7 @@ void cgroup_exit(struct task_struct *tsk, int run_callbacks)
 	task_unlock(tsk);
 
 	if (cg)
-		put_css_set(cg);
+		put_css_set_taskexit(cg);
 }
 
 /**
@@ -4717,14 +4709,6 @@ static void check_for_release(struct cgroup *cgrp)
 }
 
 /* Caller must verify that the css is not for root cgroup */
-void __css_get(struct cgroup_subsys_state *css, int count)
-{
-	atomic_add(count, &css->refcnt);
-	set_bit(CGRP_RELEASABLE, &css->cgroup->flags);
-}
-EXPORT_SYMBOL_GPL(__css_get);
-
-/* Caller must verify that the css is not for root cgroup */
 void __css_put(struct cgroup_subsys_state *css, int count)
 {
 	struct cgroup *cgrp = css->cgroup;
@@ -4732,7 +4716,10 @@ void __css_put(struct cgroup_subsys_state *css, int count)
 	rcu_read_lock();
 	val = atomic_sub_return(count, &css->refcnt);
 	if (val == 1) {
-		check_for_release(cgrp);
+		if (notify_on_release(cgrp)) {
+			set_bit(CGRP_RELEASABLE, &cgrp->flags);
+			check_for_release(cgrp);
+		}
 		cgroup_wakeup_rmdir_waiter(cgrp);
 	}
 	rcu_read_unlock();
@@ -4881,7 +4868,7 @@ EXPORT_SYMBOL_GPL(css_depth);
  * @root: the css supporsed to be an ancestor of the child.
  *
  * Returns true if "root" is an ancestor of "child" in its hierarchy. Because
- * this function reads css->id, the caller must hold rcu_read_lock().
+ * this function reads css->id, this use rcu_dereference() and rcu_read_lock().
  * But, considering usual usage, the csses should be valid objects after test.
  * Assuming that the caller will do some action to the child if this returns
  * returns true, the caller must take "child";s reference count.
@@ -5194,7 +5181,7 @@ static int cgroup_css_links_read(struct cgroup *cont,
 		struct css_set *cg = link->cg;
 		struct task_struct *task;
 		int count = 0;
-		seq_printf(seq, "css_set %pK\n", cg);
+		seq_printf(seq, "css_set %p\n", cg);
 		list_for_each_entry(task, &cg->tasks, cg_list) {
 			if (count++ > MAX_TASKS_SHOWN_PER_CSS) {
 				seq_puts(seq, "  ...\n");

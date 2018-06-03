@@ -1959,13 +1959,22 @@ struct rt6_info *rt6_add_dflt_router(const struct in6_addr *gwaddr,
 	return rt6_get_dflt_router(gwaddr, dev);
 }
 
-
 int rt6_addrconf_purge(struct rt6_info *rt, void *arg) {
 	if (rt->rt6i_flags & (RTF_DEFAULT | RTF_ADDRCONF) &&
 	    (!rt->rt6i_idev || rt->rt6i_idev->cnf.accept_ra != 2))
 		return -1;
 	return 0;
 }
+
+void rt6_purge_dflt_routers(struct net *net)
+{
+	struct rt6_info *rt;
+	struct fib6_table *table;
+
+	/* NOTE: Keep consistent with rt6_get_dflt_router */
+	table = fib6_get_table(net, RT6_TABLE_DFLT);
+	if (!table)
+		return;
 
 restart:
 	read_lock_bh(&table->tb6_lock);
