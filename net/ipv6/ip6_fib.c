@@ -907,7 +907,7 @@ st_failure:
  */
 
 struct lookup_args {
-	int			offset;		/* key offset on rt6_info	*/
+	int		offset;		/* key offset on rt6_info	*/
 	const struct in6_addr	*addr;		/* search key			*/
 };
 

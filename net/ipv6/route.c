@@ -80,12 +80,12 @@ static void		ip6_rt_update_pmtu(struct dst_entry *dst, u32 mtu);
 
 #ifdef CONFIG_IPV6_ROUTE_INFO
 static struct rt6_info *rt6_add_route_info(struct net *net,
-					   struct in6_addr *prefix, int prefixlen,
-					   struct in6_addr *gwaddr, int ifindex,
+					   const struct in6_addr *prefix, int prefixlen,
+					   const struct in6_addr *gwaddr, int ifindex,
 					   unsigned pref);
 static struct rt6_info *rt6_get_route_info(struct net *net,
-					   struct in6_addr *prefix, int prefixlen,
-					   struct in6_addr *gwaddr, int ifindex);
+					   const struct in6_addr *prefix, int prefixlen,
+					   const struct in6_addr *gwaddr, int ifindex);
 #endif
 
 static u32 *ipv6_cow_metrics(struct dst_entry *dst, unsigned long old)
@@ -808,8 +808,7 @@ static struct rt6_info *rt6_alloc_cow(struct rt6_info *ort,
 	return rt;
 }
 
-static struct rt6_info *rt6_alloc_clone(struct rt6_info *ort,
-					const struct in6_addr *daddr)
+static struct rt6_info *rt6_alloc_clone(struct rt6_info *ort, const struct in6_addr *daddr)
 {
 	struct rt6_info *rt = ip6_rt_copy(ort, daddr);
 
@@ -1864,15 +1863,14 @@ static struct rt6_info *ip6_rt_copy(struct rt6_info *ort,
 
 #ifdef CONFIG_IPV6_ROUTE_INFO
 static struct rt6_info *rt6_get_route_info(struct net *net,
-					   struct in6_addr *prefix, int prefixlen,
-					   struct in6_addr *gwaddr, int ifindex)
+					   const struct in6_addr *prefix, int prefixlen,
+					   const struct in6_addr *gwaddr, int ifindex)
 {
 	struct fib6_node *fn;
 	struct rt6_info *rt = NULL;
 	struct fib6_table *table;
 
-	table = fib6_get_table(dev_net(dev),
-			       addrconf_rt_table(dev, RT6_TABLE_INFO));
+	table = fib6_get_table(net, RT6_TABLE_INFO);
 	if (!table)
 		return NULL;
 
@@ -1882,7 +1880,7 @@ static struct rt6_info *rt6_get_route_info(struct net *net,
 		goto out;
 
 	for (rt = fn->leaf; rt; rt = rt->dst.rt6_next) {
-		if (rt->dst.dev->ifindex != dev->ifindex)
+		if (rt->dst.dev->ifindex != ifindex)
 			continue;
 		if ((rt->rt6i_flags & (RTF_ROUTEINFO|RTF_GATEWAY)) != (RTF_ROUTEINFO|RTF_GATEWAY))
 			continue;
@@ -1897,14 +1895,14 @@ out:
 }
 
 static struct rt6_info *rt6_add_route_info(struct net *net,
-					   struct in6_addr *prefix, int prefixlen,
-					   struct in6_addr *gwaddr, int ifindex,
+					   const struct in6_addr *prefix, int prefixlen,
+					   const struct in6_addr *gwaddr, int ifindex,
 					   unsigned pref)
 {
 	struct fib6_config cfg = {
-		.fc_table	= addrconf_rt_table(dev, RT6_TABLE_INFO),
+		.fc_table	= RT6_TABLE_INFO,
 		.fc_metric	= IP6_RT_PRIO_USER,
-		.fc_ifindex	= dev->ifindex,
+		.fc_ifindex	= ifindex,
 		.fc_dst_len	= prefixlen,
 		.fc_flags	= RTF_GATEWAY | RTF_ADDRCONF | RTF_ROUTEINFO |
 				  RTF_UP | RTF_PREF(pref),

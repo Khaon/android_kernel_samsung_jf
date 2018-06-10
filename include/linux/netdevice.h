@@ -58,6 +58,7 @@
 struct netpoll_info;
 struct device;
 struct phy_device;
+struct net;
 /* 802.11 specific */
 struct wireless_dev;
 					/* source back-compat hooks */
@@ -1119,6 +1120,8 @@ struct net_device {
 	unsigned int		promiscuity;
 	unsigned int		allmulti;
 
+	/* Network namespace this network device is inside */
+	struct net		*nd_net;
 
 	/* Protocol specific pointers */
 
