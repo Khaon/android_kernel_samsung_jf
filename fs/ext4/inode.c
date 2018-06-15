@@ -2524,7 +2524,7 @@ retry_grab:
 
 		if (ret == -ENOSPC &&
 		    ext4_should_retry_alloc(inode->i_sb, &retries))
-			goto retry_journal;
+			return ret;
 
 		page_cache_release(page);
 		return ret;

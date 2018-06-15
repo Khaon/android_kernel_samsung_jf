@@ -47,8 +47,6 @@
 
 static int smp_distribute_keys(struct l2cap_conn *conn, __u8 force);
 
-#define AUTH_REQ_MASK   0x07
-
 static inline void swap128(u8 src[16], u8 dst[16])
 {
 	int i;
@@ -303,6 +301,7 @@ static int tk_request(struct l2cap_conn *conn, u8 remote_oob, u8 auth,
 						u8 local_io, u8 remote_io)
 {
 	struct hci_conn *hcon = conn->hcon;
+	struct smp_chan *smp = conn->smp_chan;
 	u8 method;
 	u32 passkey = 0;
 	int ret = 0;
