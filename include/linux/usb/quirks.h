@@ -33,6 +33,10 @@
 /* device can't handle device_qualifier descriptor requests */
 #define USB_QUIRK_DEVICE_QUALIFIER	0x00000100
 
+#define USB_QUIRK_HSIC_TUNE     0x00000100
+
+#define USB_QUIRK_OTG_PET		0x00000080
+
 /*
  * For high speed and super speed interupt endpoints, the USB 2.0 and
  * USB 3.0 spec require the interval in microframes

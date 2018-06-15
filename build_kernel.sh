@@ -2,7 +2,7 @@
 
 
 export ARCH=arm
-export CROSS_COMPILE=/opt/toolchains/arm-eabi-4.7/bin/arm-eabi-
+export CROSS_COMPILE="ccache /home/khaon/android/kernel/linaro-4.9/bin/arm-eabi-"
 mkdir output
 
 make -C $(pwd) O=output VARIANT_DEFCONFIG=jf_eur_defconfig jf_defconfig SELINUX_DEFCONFIG=selinux_defconfig
